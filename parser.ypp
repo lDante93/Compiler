@@ -1,0 +1,576 @@
+%error-verbose
+
+%{
+
+#include <map>
+#include <iostream>
+#include <vector>
+
+#include "lexer.hpp"
+#include "codegenerator.hpp"
+#include "symboltable.hpp"
+#include "symbol.hpp"
+
+using namespace std;
+
+int yylex();
+void yyerror(const char *s);
+
+extern CodeGenerator *codeGenerator;
+extern SymbolTable *symbolTable;
+std::vector<int> arguments;
+std::vector<int> awaitingSymbols;
+std::map<int, VarType> varWithTypesMap;
+int programSymbolIndex = -1;
+SymbolTable *tmp;
+std::vector<Symbol> searchFunctionArguments(int funcId);
+int functionCall = -1;
+
+%}
+
+
+%token PROGRAM
+%token VAR
+%token ARRAY
+%token OF
+%token TOKEN_TYPE_INTEGER
+%token INTEGER
+%token REAL
+%token TOKEN_TYPE_REAL
+%token PLUS
+%token MINUS
+%token MULTIPLICATION
+%token DIVISION
+%token DIV
+%token MOD
+%token AND
+%token RELOP
+%token ASSIGN
+%token ID
+%token FUNCTION
+%token PROCEDURE
+%token BEGIN_TOKEN
+%token END_TOKEN
+%token IF
+%token THEN
+%token ELSE
+%token WHILE
+%token DO
+%token OR
+%token NOT
+%token DOTDOT
+
+%right PLUS MINUS
+%left '(' ')'
+%left '*' '/'
+
+%%
+
+program:
+    PROGRAM program_id '(' identifier_list ')' ';' {
+        for (int i = 0; i < awaitingSymbols.size(); ++i) {
+		cout<<"1111111111111111111111111"<<endl;
+            Symbol &symbol = symbolTable->getSymbolByIndex(awaitingSymbols[i]);
+            symbol.setSymbolType(NONE_SYMBOL);
+            symbol.setVarType(NONE_TYPE);
+        }
+
+        awaitingSymbols.clear();
+    }
+    declarations { 	cout<<"222222222222222222222222222"<<endl; }
+    subprogram_declarations
+    program_compound_statement
+    ;
+
+program_compound_statement:
+    BEGIN_TOKEN {
+        Symbol &programSymbol = symbolTable->getSymbolByIndex(programSymbolIndex);
+        codeGenerator->createLabelStatement(programSymbol.getSymbolName());
+    }
+    statement_list
+    END_TOKEN '.' {
+        Symbol &programSymbol = symbolTable->getSymbolByIndex(programSymbolIndex);
+        codeGenerator->createExitStatement();
+    }
+    ;
+
+program_id:
+    ID {
+        programSymbolIndex = $1;
+        Symbol &programSymbol = symbolTable->getSymbolByIndex($1);
+        programSymbol.setSymbolType(LABEL_SYMBOL);
+        codeGenerator->createJumpStatement(programSymbol.getSymbolName());
+    }
+    ;
+
+identifier_list:
+    ID {
+        awaitingSymbols.push_back($1);
+    }
+    | identifier_list ',' ID {
+        awaitingSymbols.push_back($3);
+    }
+    ;
+
+declarations:
+    declarations VAR identifier_list ':' type ';' {
+        for (int i = 0; i < awaitingSymbols.size(); ++i) {
+            Symbol &symbol = symbolTable->getSymbolByIndex(awaitingSymbols[i]);
+            symbol.setSymbolType(VAR_SYMBOL);
+            switch ($5) {
+                case TOKEN_TYPE_INTEGER:
+                    symbol.setVarType(INT_TYPE);;
+                    break;
+                case TOKEN_TYPE_REAL:
+                    symbol.setVarType(REAL_TYPE);
+                    break;
+            }
+            if (symbolTable->getName().compare("global") != 0)
+            {
+                symbol.setIsLocal(true);
+                symbol.setAddress(symbolTable->localSpaceAddress);
+				cout<<"   @@              !@#!@#WARNING LOCALSPACEADRESS BEFORE"<<symbolTable->localSpaceAddress<<endl;
+                symbolTable->localSpaceAddress -= symbol.getVarType() == INT_TYPE ? 4 : 8;
+                symbolTable->enterArg += (symbol.getVarType() == INT_TYPE ? 4 : 8);
+				cout<<"!@#!@#WARNING LOCALSPACEADRESS AFTER"<<symbolTable->localSpaceAddress<<endl;
+				cout<<"!@#!@#WARNING ENTERARG AFTER"<<symbolTable->enterArg<<endl;
+				
+            } else {
+			cout<<"   @@                !@#!@#WARNING "<<symbolTable->localSpaceAddress<<endl;
+                symbol.setAddress(symbolTable->getAddress());
+                symbolTable->increaseAddress(symbol.getVarType() == INT_TYPE ? 4 : 8);
+                symbolTable->enterArg += (symbol.getVarType() == INT_TYPE ? 4 : 8);
+            }
+        }
+        awaitingSymbols.clear();
+    }
+    | /* empty */
+    ;
+
+type:
+    standard_type
+    | ARRAY '[' INTEGER DOTDOT INTEGER ']' OF standard_type
+    ;
+
+standard_type:
+    TOKEN_TYPE_INTEGER {
+        $$ = TOKEN_TYPE_INTEGER;
+    }
+    | TOKEN_TYPE_REAL {
+        $$ = TOKEN_TYPE_REAL;
+    }
+    ;
+
+subprogram_declarations:
+    subprogram_declarations subprogram_declaration ';' {
+	cout<<"                                                               !!!1ENTER ARG!!!"<<symbolTable->enterArg<<endl;
+	cout<<"LAST LOCAL SPACE ADDRES: "<<symbolTable->lastLocalSpaceAddress<<endl;
+        if (symbolTable->lastLocalSpaceAddress == -4)
+        {
+			cout<<"                         LAST LOCAL SPACE ADDRES  -4       : "<<symbolTable->lastLocalSpaceAddress<<endl;
+            symbolTable->insertConstant(symbolTable->enterArg);
+            codeGenerator->createProcedureEnterStatement(symbolTable->getName(), symbolTable->enterArg);
+        }
+        else
+        {
+		cout<<symbolTable->enterArg<<"						ENTER ARG DLA ELSE"<<endl;
+            codeGenerator->createProcedureEnterStatement(symbolTable->getName(), symbolTable->enterArg);
+            symbolTable->insertConstant(symbolTable->enterArg);
+        }
+
+        varWithTypesMap.clear();        
+        codeGenerator->createSubProgramReturnStatements();
+        symbolTable = tmp;
+        tmp = NULL;
+    }
+    | {	cout<<"                                                               !!!2ENTER ARG!!!"<<symbolTable->enterArg<<endl;}
+    ;
+
+subprogram_declaration:
+    subprogram_head declarations compound_statement
+    ;
+
+subprogram_head:
+    FUNCTION ID {
+	cout<<"!!!FUNCTION!!!"<<endl;
+        Symbol &symbol = symbolTable->getSymbolByIndex($2);
+        symbol.setSymbolType(FUNCTION_SYMBOL);
+        tmp = symbolTable;
+        symbolTable = symbolTable->addNewSymbolTable(symbol.getSymbolName());
+    } arguments ':' standard_type ';' {
+	cout<<"FUNCTION ARGUMENTS"<<endl;
+        Symbol &fSymbol = symbolTable->getSymbolByIndex($2);
+        fSymbol.setReturnType($6 == TOKEN_TYPE_INTEGER ? INT_TYPE : REAL_TYPE);
+        int tmpValue = symbolTable->createReference(fSymbol.getSymbolName(), $6 == TOKEN_TYPE_INTEGER ? INT_TYPE : REAL_TYPE);
+        std::map<int, VarType>::reverse_iterator iter;
+		cout<<"ITERATOR BEFORE START"<<endl;
+        for (iter = varWithTypesMap.rbegin(); iter != varWithTypesMap.rend(); ++iter) {
+		cout<<"MAP ITERATOR"<<endl;
+            Symbol &symbol = symbolTable->getSymbolByIndex(iter->first);
+            symbol.setVarType(iter->second);
+            symbol.setSymbolType(ARGUMENT_SYMBOL);
+            symbol.setIsReference(true);
+			cout<<"ITERATOR ADDRESS"<<symbolTable->getAddress()<<endl;
+            symbol.setAddress(symbolTable->getAddress());
+            symbolTable->increaseAddress(4);
+        }
+        codeGenerator->createLabelStatement(fSymbol.getSymbolName());
+        codeGenerator->createEnterPlaceholder(fSymbol.getSymbolName());
+		
+			cout<<" 				subprogram_head!!!1ENTER ARG!!!"<<symbolTable->enterArg<<endl;
+	cout<<"subprogram_head			LAST LOCAL SPACE ADDRES: "<<symbolTable->lastLocalSpaceAddress<<endl;
+    }
+    | PROCEDURE ID {
+		cout<<"!!!PROCEDURE!!!"<<endl;
+        Symbol &symbol = symbolTable->getSymbolByIndex($2);
+        symbol.setSymbolType(PROCEDURE_SYMBOL);
+        tmp = symbolTable;
+        symbolTable = symbolTable->addNewSymbolTable(symbol.getSymbolName());
+    } arguments ';' {
+        Symbol &symbol = symbolTable->getSymbolByIndex($2);
+        codeGenerator->createLabelStatement(symbol.getSymbolName());
+        codeGenerator->createEnterPlaceholder(symbol.getSymbolName());
+    }
+    ;
+
+arguments:
+    '(' parameter_list ')'
+    | /* empty */
+    ;
+
+parameter_list:
+    identifier_list ':' type {
+        for (int i = 0; i < awaitingSymbols.size(); ++i)
+        {
+            if ($3 == TOKEN_TYPE_INTEGER)
+            {
+                varWithTypesMap[awaitingSymbols[i]] = INT_TYPE;
+            }
+            else
+            {
+                varWithTypesMap[awaitingSymbols[i]] = REAL_TYPE;
+            }
+            
+        }
+        awaitingSymbols.clear();
+    }
+    | parameter_list ';' identifier_list ':' type {
+        for (int i = 0; i < awaitingSymbols.size(); ++i)
+        {
+            if ($5 == TOKEN_TYPE_INTEGER)
+            {
+                varWithTypesMap[awaitingSymbols[i]] = INT_TYPE;
+            }
+            else
+            {
+                varWithTypesMap[awaitingSymbols[i]] = REAL_TYPE;
+            }
+            
+        }
+        awaitingSymbols.clear();
+    }
+    ;
+
+compound_statement:
+    BEGIN_TOKEN
+    statement_list
+    END_TOKEN{
+	
+				cout<<" 				compound_statement!!!1ENTER ARG!!!"<<symbolTable->enterArg<<endl;
+	cout<<"					compound_statement			LAST LOCAL SPACE ADDRES: "<<symbolTable->lastLocalSpaceAddress<<endl;
+	}
+    ;
+
+statement_list:
+    statement
+    | statement_list ';' statement
+    ;
+
+statement: 
+    variable ASSIGN expression {
+        Symbol src = symbolTable->getSymbolByIndex($1);
+        Symbol dst = symbolTable->getSymbolByIndex($3);
+
+        if (src.getSymbolType() == FUNCTION_SYMBOL) {
+				cout<<"STATEMENT FUNC"<<endl;
+            Symbol *symbolRef = symbolTable->lookupFuncReturnReference(src.getSymbolName());
+            codeGenerator->createMovStatement(*symbolRef, dst, symbolRef->getVarType());
+        } else {
+            if (src.getVarType() == REAL_TYPE && dst.getVarType() == INT_TYPE) {
+					cout<<"STATEMENT REAL INT"<<endl;
+                int tmpValue = symbolTable->createTemporaryVariable(REAL_TYPE);
+                Symbol tmpSymbol = symbolTable->getSymbolByIndex(tmpValue);
+                codeGenerator->createIntToRealStatement(dst, tmpSymbol);
+                codeGenerator->createMovStatement(src, tmpSymbol, REAL_TYPE);
+            } else if (dst.getVarType() == REAL_TYPE && src.getVarType() == INT_TYPE) {
+					cout<<"STATEMENT INT REAL"<<endl;
+                int tmpValue = symbolTable->createTemporaryVariable(REAL_TYPE);
+                Symbol tmpSymbol = symbolTable->getSymbolByIndex(tmpValue);
+                codeGenerator->createIntToRealStatement(src, tmpSymbol);
+                codeGenerator->createMovStatement(tmpSymbol, src, REAL_TYPE);
+            } else {
+			cout<<"STATEMENT INTINT REAL REAL"<<endl;
+                VarType varType = src.getVarType();
+                codeGenerator->createMovStatement(src, dst, varType);
+            }
+        }
+						cout<<" 				statement!!!1ENTER ARG!!!"<<symbolTable->enterArg<<endl;
+	cout<<"					statement			LAST LOCAL SPACE ADDRES: "<<symbolTable->lastLocalSpaceAddress<<endl;
+    }
+    | procedure_statement
+    | compound_statement
+    | IF expression THEN statement ELSE statement
+    | WHILE expression DO statement
+    | /* ignore */
+    ;
+
+variable:
+    ID
+    | ID '[' expression ']'
+    ;
+
+procedure_statement:
+    ID {
+        Symbol &procedureSymbol = symbolTable->getSymbolByIndex($1);
+        codeGenerator->createCallStatement(procedureSymbol.getSymbolName());
+    }
+    | ID '(' expression_list ')' {
+        Symbol &procedureSymbol = symbolTable->getSymbolByIndex($1);
+        if (procedureSymbol.getSymbolName().compare("write") == 0) {
+            for (int i = 0; i < arguments.size(); i++)
+            {
+                Symbol &argSymbol = symbolTable->getSymbolByIndex(arguments[i]);
+                codeGenerator->createWriteStatement(argSymbol);
+            }
+        } else {
+            codeGenerator->createCallStatement(procedureSymbol.getSymbolName());
+        }
+        arguments.clear();
+    }
+    ;
+
+expression_list:
+    expression {
+        arguments.push_back($1);
+    }
+    | expression_list ',' expression {
+        arguments.push_back($3);
+    }
+    ;
+
+expression:
+    simple_expression
+    | simple_expression RELOP simple_expression
+    ;
+
+simple_expression:
+    term
+    | sign term
+    | simple_expression sign term {
+        Symbol left = symbolTable->getSymbolByIndex($1);
+        Symbol right = symbolTable->getSymbolByIndex($3);
+
+        int tmpIndex = -1;
+        Symbol tmpSymbol;
+        Symbol dst;
+
+        if (left.getVarType() == REAL_TYPE && right.getVarType() == INT_TYPE) {
+		cout<<"RI"<<endl;
+            tmpIndex = symbolTable->createTemporaryVariable(REAL_TYPE);
+            tmpSymbol = symbolTable->getSymbolByIndex(tmpIndex);
+            codeGenerator->createIntToRealStatement(right, tmpSymbol);
+            right = tmpSymbol;
+            $$ = symbolTable->createTemporaryVariable(REAL_TYPE);
+            dst = symbolTable->getSymbolByIndex($$);
+        } else if (right.getVarType() == REAL_TYPE && left.getVarType() == INT_TYPE) {
+		cout<<"IR"<<endl;
+            tmpIndex = symbolTable->createTemporaryVariable(REAL_TYPE);
+            tmpSymbol = symbolTable->getSymbolByIndex(tmpIndex);
+            codeGenerator->createIntToRealStatement(left, tmpSymbol);
+            left = tmpSymbol;
+            $$ = symbolTable->createTemporaryVariable(REAL_TYPE);
+            dst = symbolTable->getSymbolByIndex($$);
+        } else {
+		cout<<"hejo"<<endl;
+            tmpIndex = symbolTable->createTemporaryVariable(left.getVarType());
+            dst = symbolTable->getSymbolByIndex(tmpIndex);
+            $$ = tmpIndex;
+        }
+	cout<<"TUTUTUT"<<endl;
+	cout<<dst.getAddress()<<endl;
+        if ('+' == yytext[0])
+            codeGenerator->createArithmeticStatement(left, right, dst, '+');
+        else
+            codeGenerator->createArithmeticStatement(left, right, dst, '+');
+    }
+    | simple_expression OR term
+    ;
+
+term: 
+    factor
+    | term DIV factor
+    | term MOD factor
+    | term DIVISION factor
+    | term MULTIPLICATION factor {
+        Symbol left = symbolTable->getSymbolByIndex($1);
+        Symbol right = symbolTable->getSymbolByIndex($3);
+        int tmpIndex = -1;
+        Symbol tmpSymbol;
+
+        if (left.getVarType() == REAL_TYPE && right.getVarType() == INT_TYPE) {
+            int tmpValue = symbolTable->createTemporaryVariable(REAL_TYPE);
+            tmpSymbol = symbolTable->getSymbolByIndex(tmpValue);
+            codeGenerator->createIntToRealStatement(right, tmpSymbol);
+            tmpIndex = symbolTable->createTemporaryVariable(REAL_TYPE);
+            right = tmpSymbol;
+        } else if (right.getVarType() == REAL_TYPE && left.getVarType() == INT_TYPE) {
+            int tmpValue = symbolTable->createTemporaryVariable(REAL_TYPE);
+            tmpSymbol = symbolTable->getSymbolByIndex(tmpValue);
+            codeGenerator->createIntToRealStatement(left, tmpSymbol);
+            tmpIndex = symbolTable->createTemporaryVariable(REAL_TYPE);
+            left = tmpSymbol;
+        } else {
+            tmpIndex = symbolTable->createTemporaryVariable(INT_TYPE);
+        }
+
+        Symbol dst = symbolTable->getSymbolByIndex(tmpIndex);
+        codeGenerator->createArithmeticStatement(left, right, dst, '*');
+        $$ = tmpIndex;
+    }
+    ;
+
+factor:
+    variable {
+        Symbol symbol = symbolTable->getSymbolByIndex($1);
+        if (symbol.getSymbolType() == FUNCTION_SYMBOL)
+        {
+            int refId = symbolTable->lookupReturnVariable(symbol);
+            Symbol returnVar = symbolTable->getSymbolByIndex(refId);
+            codeGenerator->createPushStatement(returnVar);
+            codeGenerator->createCallStatement(symbol.getSymbolName());
+            codeGenerator->createIncSPStatement();
+			cout<<"1BEFORE LOCAL SPACE ADDRESS: "<< symbolTable->localSpaceAddress<<endl;
+            symbolTable->localSpaceAddress -= 4;
+			cout<<"1AFTER LOCAL SPACE ADDRESS: "<< symbolTable->localSpaceAddress<<endl;
+            $$ = refId;
+        }
+        else
+        {
+		cout<<"TUTAJ"<<endl;
+            $$ = $1;
+        }
+    }
+    | ID {
+        functionCall = $1;
+    } '(' expression_list ')' {
+        std::vector<Symbol> funcArgs = searchFunctionArguments($1);
+        for (int i = 0; i < arguments.size(); ++i)
+        {
+            Symbol s = symbolTable->getSymbolByIndex(arguments[i]);
+            if (s.getSymbolType() == CONSTANT_SYMBOL)
+            {
+                int tmpIndex = symbolTable->createTemporaryVariable(s.getVarType());
+                Symbol tmpSymbol = symbolTable->getSymbolByIndex(tmpIndex);
+                codeGenerator->createMovStatement(tmpSymbol, s, s.getVarType());
+                codeGenerator->createPushStatement(tmpSymbol);
+            }
+            else if (s.getVarType() != funcArgs[i].getVarType())
+            {
+                if (s.getVarType() == INT_TYPE)
+                {
+                    int tmpValue = symbolTable->createTemporaryVariable(REAL_TYPE);
+                    Symbol ss = symbolTable->getSymbolByIndex(tmpValue);
+                    codeGenerator->createIntToRealStatement(s, ss);
+                    codeGenerator->createPushStatement(ss);
+                }
+                else
+                {
+                    int tmpValue = symbolTable->createTemporaryVariable(INT_TYPE);
+                    Symbol ss = symbolTable->getSymbolByIndex(tmpValue);
+                    codeGenerator->createRealToIntStatement(s, ss);
+                    codeGenerator->createPushStatement(ss);
+                }
+            }
+            else
+            {
+                codeGenerator->createPushStatement(s);
+            }
+        }
+
+        arguments.clear();
+        functionCall = -1;
+        Symbol symbol = symbolTable->getSymbolByIndex($1);
+        int refId = symbolTable->lookupReturnVariable(symbol);
+        Symbol returnVar = symbolTable->getSymbolByIndex(refId);
+        codeGenerator->createPushStatement(returnVar);
+        codeGenerator->createCallStatement(symbol.getSymbolName());
+        codeGenerator->createIncSPStatement();
+     			cout<<"2BEFORE LOCAL SPACE ADDRESS: "<< symbolTable->localSpaceAddress<<endl;
+            symbolTable->localSpaceAddress -= 4;
+			cout<<"2AFTER LOCAL SPACE ADDRESS: "<< symbolTable->localSpaceAddress<<endl;
+        $$ = refId;
+    }
+    | INTEGER {
+	cout<<"INTEGER METHOD"<<endl;
+        int symbolIndex = symbolTable->lookupSymbol(atoi(yytext));
+        if (symbolIndex == -1)
+        {
+		cout<<"INTEGER -1 index"<<endl;
+            $$ = symbolTable->insertConstant(atoi(yytext));
+        } else {
+		cout<<"ELSE INTEGER"<<endl;
+            $$ = symbolIndex;
+        }
+    }
+    | REAL {
+        int symbolIndex = symbolTable->lookupSymbol(atof(yytext));
+        if (symbolIndex == -1)
+        {
+            $$ = symbolTable->insertConstant(atof(yytext));
+        } else {
+            $$ = symbolIndex;
+        }
+    }
+    | '(' expression ')' {
+        $$ = $2;
+    }
+    | NOT factor
+    ;
+
+sign:
+    PLUS
+    | MINUS
+    ;
+%%
+
+void yyerror(const char *err)
+{
+    cout << "Błąd składniowy w linii " << yylineno << ". " << err << endl;
+    exit(-1);
+}
+
+std::vector<Symbol> searchFunctionArguments(int funcId)
+{
+    std::vector<Symbol> ret;
+    if (symbolTable->getName().compare("global") == 0)
+    {
+        Symbol func = symbolTable->getSymbolByIndex(funcId);
+        for (int i = 0; i < symbolTable->children->size(); ++i)
+        {
+            SymbolTable *table = symbolTable->children->at(i);
+            if (table->getName().compare(func.getSymbolName()) == 0)
+            {
+                for (int j = 0; j < table->symbols->size(); ++j)
+                {
+                    Symbol s = *table->symbols->at(j);
+                    if (s.getSymbolType() == ARGUMENT_SYMBOL)
+                    {
+                        ret.push_back(s);
+                    }
+                }
+            }
+        }
+    }
+
+    return ret;
+}

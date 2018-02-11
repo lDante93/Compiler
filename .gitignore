@@ -1,0 +1,7 @@
+*.o
+lexer.hpp
+parser.cpp
+parser.hpp
+lexer.cpp
+compiler
+output.asm
