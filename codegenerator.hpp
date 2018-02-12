@@ -44,7 +44,7 @@ public:
     void createProcedureEnterStatement(string func, int numberOfArguments);
     void createEnterPlaceholder(string func);
     void createSubProgramReturnStatements();
- 
+    void createJumpGreaterStatement(Symbol left, Symbol right, Symbol label);
 };
 
 #endif

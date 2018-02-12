@@ -442,7 +442,26 @@ expression:
 
         $$ = resultId;
     }
-    | simple_expression GREATER simple_expression
+    | simple_expression GREATER simple_expression {
+        Symbol left = symbolTable->getSymbolByIndex($1);
+        Symbol right = symbolTable->getSymbolByIndex($3);
+        Symbol trueLabel = symbolTable->getSymbolByIndex(symbolTable->createLabel(false));
+        Symbol falseLabel = symbolTable->getSymbolByIndex(symbolTable->createLabel(false));
+        int resultId = symbolTable->createTemporaryVariable(INT_TYPE);
+        Symbol tmpSymbol = symbolTable->getSymbolByIndex(resultId);
+        Symbol falseConstant = symbolTable->getSymbolByIndex(symbolTable->insertConstant(0));
+        Symbol trueConstant = symbolTable->getSymbolByIndex(symbolTable->insertConstant(1));
+        
+        codeGenerator->createJumpGreaterStatement(left, right, trueLabel);
+        codeGenerator->createMovStatement(tmpSymbol, falseConstant, INT_TYPE);
+        codeGenerator->createJumpStatement(falseLabel.getSymbolName());
+
+        codeGenerator->createLabelStatement(trueLabel.getSymbolName());
+        codeGenerator->createMovStatement(tmpSymbol, trueConstant, INT_TYPE);
+        codeGenerator->createLabelStatement(falseLabel.getSymbolName());
+
+        $$ = resultId;
+    }
     | simple_expression LESS_OR_EQUAL simple_expression
     | simple_expression GREATER_OR_EQUAL simple_expression
 	
@@ -644,7 +663,25 @@ factor:
     | '(' expression ')' {
         $$ = $2;
     }
-    | NOT factor
+    | NOT factor {
+        Symbol expression = symbolTable->getSymbolByIndex($2);
+        Symbol zeroConstant = symbolTable->getSymbolByIndex(symbolTable->insertConstant(0));
+        int negatedSymbolId = symbolTable->createTemporaryVariable(INT_TYPE);
+        Symbol negatedSymbol = symbolTable->getSymbolByIndex(negatedSymbolId);
+        Symbol label = symbolTable->getSymbolByIndex(symbolTable->createLabel(false));
+        Symbol elseLabel = symbolTable->getSymbolByIndex(symbolTable->createLabel(false));
+
+        codeGenerator->createJumpEqualStatement(expression, zeroConstant, label);
+        codeGenerator->createMovStatement(negatedSymbol, zeroConstant, INT_TYPE);
+        codeGenerator->createJumpStatement(elseLabel.getSymbolName());
+
+        codeGenerator->createLabelStatement(label.getSymbolName());
+        Symbol oneConstant = symbolTable->getSymbolByIndex(symbolTable->insertConstant(1));
+        codeGenerator->createMovStatement(negatedSymbol, oneConstant, INT_TYPE);
+        codeGenerator->createLabelStatement(elseLabel.getSymbolName());
+
+        $$ = negatedSymbolId;
+    }
     ;
 
 sign:

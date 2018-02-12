@@ -172,6 +172,12 @@ void CodeGenerator::createOrStatement(Symbol left, Symbol right, Symbol to)
                  << to.getBPOperand()
                  << endl;
 }
+void CodeGenerator::createJumpGreaterStatement(Symbol left, Symbol right, Symbol label)
+{
+    this->output << "\tjg.i " << left.getBPOperand() << ","
+                 << right.getBPOperand() << ",#" << label.getBPOperand()
+                 << endl;
+}
 
 
 
