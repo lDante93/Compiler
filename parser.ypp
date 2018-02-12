@@ -44,7 +44,12 @@ int functionCall = -1;
 %token DIV
 %token MOD
 %token AND
-%token RELOP
+%token EQUAL
+%token NOT_EQUAL
+%token LESS
+%token GREATER
+%token GREATER_OR_EQUAL
+%token LESS_OR_EQUAL
 %token ASSIGN
 %token ID
 %token FUNCTION
@@ -61,9 +66,8 @@ int functionCall = -1;
 %token DOTDOT
 
 %right PLUS MINUS
-%left '(' ')'
 %left '*' '/'
-
+%left AND
 %%
 
 program:
@@ -84,8 +88,10 @@ program:
 
 program_compound_statement:
     BEGIN_TOKEN {
-        Symbol &programSymbol = symbolTable->getSymbolByIndex(programSymbolIndex);
-        codeGenerator->createLabelStatement(programSymbol.getSymbolName());
+	cout<<endl<<endl<<endl<<endl<<endl<<endl<<endl<<endl<<endl<<"PROGRAM COMPOUND STATEMENT"<<endl;
+        string programNameLabel = symbolTable->getNextLabel();
+		cout<<"PROGRAMNAMELABEL "<<programNameLabel<<endl;
+        codeGenerator->createLabelStatement(programNameLabel);
     }
     statement_list
     END_TOKEN '.' {
@@ -97,8 +103,7 @@ program_compound_statement:
 program_id:
     ID {
         programSymbolIndex = $1;
-        Symbol &programSymbol = symbolTable->getSymbolByIndex($1);
-        programSymbol.setSymbolType(LABEL_SYMBOL);
+        Symbol programSymbol = symbolTable->getSymbolByIndex(symbolTable->createLabel(true));
         codeGenerator->createJumpStatement(programSymbol.getSymbolName());
     }
     ;
@@ -138,8 +143,11 @@ declarations:
             } else {
 			cout<<"   @@                !@#!@#WARNING "<<symbolTable->localSpaceAddress<<endl;
                 symbol.setAddress(symbolTable->getAddress());
+				cout<<"SYMBOL GETNAME: "<<symbol.getSymbolName()<<endl;
+				cout<<"SYMBOL ADDRESS: "<<symbolTable->getAddress()<<endl;
                 symbolTable->increaseAddress(symbol.getVarType() == INT_TYPE ? 4 : 8);
                 symbolTable->enterArg += (symbol.getVarType() == INT_TYPE ? 4 : 8);
+				cout<<"SYMBOLTABLE ENTERARG AFTER: "<<symbolTable->enterArg<<endl;
             }
         }
         awaitingSymbols.clear();
@@ -303,7 +311,7 @@ statement:
                 codeGenerator->createIntToRealStatement(dst, tmpSymbol);
                 codeGenerator->createMovStatement(src, tmpSymbol, REAL_TYPE);
             } else if (dst.getVarType() == REAL_TYPE && src.getVarType() == INT_TYPE) {
-					cout<<"STATEMENT INT REAL"<<endl;
+				cout<<"STATEMENT INT REAL"<<endl;
                 int tmpValue = symbolTable->createTemporaryVariable(REAL_TYPE);
                 Symbol tmpSymbol = symbolTable->getSymbolByIndex(tmpValue);
                 codeGenerator->createIntToRealStatement(src, tmpSymbol);
@@ -311,6 +319,20 @@ statement:
             } else {
 			cout<<"STATEMENT INTINT REAL REAL"<<endl;
                 VarType varType = src.getVarType();
+                if (dst.getSymbolType() == CONSTANT_SYMBOL)
+                     {
+                         int index = -1;
+                         if (dst.getVarType() == INT_TYPE)
+                             {
+                             index = symbolTable->insertConstant(dst.getSymbolValue().intValue);
+                             }
+                         else
+                             {
+                             index = symbolTable->insertDoubleConstant(dst.getSymbolValue().doubleValue);
+                             }
+
+                     dst = symbolTable->getSymbolByIndex(index);
+                    }		
                 codeGenerator->createMovStatement(src, dst, varType);
             }
         }
@@ -319,7 +341,24 @@ statement:
     }
     | procedure_statement
     | compound_statement
-    | IF expression THEN statement ELSE statement
+    | IF expression THEN {
+	cout<<"IF EXPRESSION THEN"<<endl;
+	    Symbol zeroConstant = symbolTable->getSymbolByIndex(symbolTable->insertConstant(0));
+        Symbol expression = symbolTable->getSymbolByIndex($2);
+        Symbol label = symbolTable->getSymbolByIndex(symbolTable->createLabel(true));
+        
+        symbolTable->createLabel(true);
+        codeGenerator->createJumpEqualStatement(expression, zeroConstant, label);
+		
+        } statement {
+	
+	    codeGenerator->createJumpStatement(symbolTable->getLastPendingLabel());
+        codeGenerator->createLabelStatement(symbolTable->getNextLabel());
+		
+        } ELSE statement {
+        codeGenerator->createLabelStatement(symbolTable->getNextLabel());
+        }
+	
     | WHILE expression DO statement
     | /* ignore */
     ;
@@ -360,7 +399,34 @@ expression_list:
 
 expression:
     simple_expression
-    | simple_expression RELOP simple_expression
+    | simple_expression EQUAL simple_expression
+    | simple_expression NOT_EQUAL simple_expression
+    | simple_expression LESS simple_expression {
+        Symbol left = symbolTable->getSymbolByIndex($1);
+        Symbol right = symbolTable->getSymbolByIndex($3);
+        Symbol trueLabel = symbolTable->getSymbolByIndex(symbolTable->createLabel(false));
+        Symbol falseLabel = symbolTable->getSymbolByIndex(symbolTable->createLabel(false));
+        int resultId = symbolTable->createTemporaryVariable(INT_TYPE);
+        Symbol tmpSymbol = symbolTable->getSymbolByIndex(resultId);
+        Symbol falseConstant = symbolTable->getSymbolByIndex(symbolTable->insertConstant(0));
+        Symbol trueConstant = symbolTable->getSymbolByIndex(symbolTable->insertConstant(1));
+        
+        codeGenerator->createJumpLessStatement(left, right, trueLabel);
+        codeGenerator->createMovStatement(tmpSymbol, falseConstant, INT_TYPE);
+        codeGenerator->createJumpStatement(falseLabel.getSymbolName());
+
+        codeGenerator->createLabelStatement(trueLabel.getSymbolName());
+        codeGenerator->createMovStatement(tmpSymbol, trueConstant, INT_TYPE);
+        codeGenerator->createLabelStatement(falseLabel.getSymbolName());
+
+        $$ = resultId;
+    }
+    | simple_expression GREATER simple_expression
+    | simple_expression LESS_OR_EQUAL simple_expression
+    | simple_expression GREATER_OR_EQUAL simple_expression
+	
+	
+	
     ;
 
 simple_expression:
@@ -408,6 +474,18 @@ simple_expression:
 
 term: 
     factor
+	| term AND factor {
+        Symbol left = symbolTable->getSymbolByIndex($1);
+        Symbol right = symbolTable->getSymbolByIndex($3);
+        int tmpReturnId = symbolTable->createTemporaryVariable(INT_TYPE);
+        Symbol tmpSymbol = symbolTable->getSymbolByIndex(tmpReturnId);
+        Symbol falseConstant = symbolTable->getSymbolByIndex(symbolTable->insertConstant(0));
+        Symbol trueConstant = symbolTable->getSymbolByIndex(symbolTable->insertConstant(1));
+
+        codeGenerator->createAndStatement(left, right, tmpSymbol);
+
+        $$ = tmpReturnId;
+    }
     | term DIV factor
     | term MOD factor
     | term DIVISION factor
@@ -448,7 +526,7 @@ factor:
             Symbol returnVar = symbolTable->getSymbolByIndex(refId);
             codeGenerator->createPushStatement(returnVar);
             codeGenerator->createCallStatement(symbol.getSymbolName());
-            codeGenerator->createIncSPStatement();
+            codeGenerator->createIncreaseSPStatement();
 			cout<<"1BEFORE LOCAL SPACE ADDRESS: "<< symbolTable->localSpaceAddress<<endl;
             symbolTable->localSpaceAddress -= 4;
 			cout<<"1AFTER LOCAL SPACE ADDRESS: "<< symbolTable->localSpaceAddress<<endl;
@@ -504,7 +582,7 @@ factor:
         Symbol returnVar = symbolTable->getSymbolByIndex(refId);
         codeGenerator->createPushStatement(returnVar);
         codeGenerator->createCallStatement(symbol.getSymbolName());
-        codeGenerator->createIncSPStatement();
+        codeGenerator->createIncreaseSPStatement();
      			cout<<"2BEFORE LOCAL SPACE ADDRESS: "<< symbolTable->localSpaceAddress<<endl;
             symbolTable->localSpaceAddress -= 4;
 			cout<<"2AFTER LOCAL SPACE ADDRESS: "<< symbolTable->localSpaceAddress<<endl;
@@ -523,10 +601,10 @@ factor:
         }
     }
     | REAL {
-        int symbolIndex = symbolTable->lookupSymbol(atof(yytext));
+        int symbolIndex = symbolTable->lookupSymbol((double) atof(yytext));
         if (symbolIndex == -1)
         {
-            $$ = symbolTable->insertConstant(atof(yytext));
+        $$ = symbolTable->insertDoubleConstant((double) atof(yytext));
         } else {
             $$ = symbolIndex;
         }

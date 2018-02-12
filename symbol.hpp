@@ -122,7 +122,7 @@ public:
         this->isLocal = isLocal;
     }
 
-    std::string getASMOperand()
+    std::string getBPOperand()
     {
         if (this->isReference)
         {
@@ -144,13 +144,14 @@ public:
             }
             else
             {
-                return "#" + std::to_string(this->value.doubleValue);
+                 std::string doubleStr = std::to_string(this->value.doubleValue);
+                 return "#" + doubleStr.erase(doubleStr.find_last_not_of('0') + 3, std::string::npos);
             }
         }
         else
         {
-			std::cout<<"ASMO ELSE "<<this->address<<std::endl;
-            return std::to_string(this->address);;
+			std::cout<<"getBPOperand ELSE "<<this->address<<std::endl;
+  		    return std::to_string(this->address);
         }
     }
 

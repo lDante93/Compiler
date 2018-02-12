@@ -161,32 +161,32 @@ return MULTIPLICATION;}
 "=" {
 cout<<endl<<endl<< "NON_TERMINAL YYLVAL (PREVIOUS TOKENINDEX): "<<yylval<<endl;
 cout<<"NON_TERMINAL YYTEXT: "<<yytext<<endl;
-return RELOP;}
+return EQUAL;}
 
 "<>" {
 cout<<endl<<endl<< "NON_TERMINAL YYLVAL (PREVIOUS TOKENINDEX): "<<yylval<<endl;
 cout<<"NON_TERMINAL YYTEXT: "<<yytext<<endl;
-return RELOP;}
+return NOT_EQUAL;}
 
 "<" {
 cout<<endl<<endl<< "NON_TERMINAL YYLVAL (PREVIOUS TOKENINDEX): "<<yylval<<endl;
 cout<<"NON_TERMINAL YYTEXT: "<<yytext<<endl;
-return RELOP;}
-
-">" {
-cout<<endl<<endl<< "NON_TERMINAL YYLVAL (PREVIOUS TOKENINDEX): "<<yylval<<endl;
-cout<<"NON_TERMINAL YYTEXT: "<<yytext<<endl;
-return RELOP;}
-
-">=" {
-cout<<endl<<endl<< "NON_TERMINAL YYLVAL (PREVIOUS TOKENINDEX): "<<yylval<<endl;
-cout<<"NON_TERMINAL YYTEXT: "<<yytext<<endl;
-return RELOP;}
+return LESS;}
 
 "<=" {
 cout<<endl<<endl<< "NON_TERMINAL YYLVAL (PREVIOUS TOKENINDEX): "<<yylval<<endl;
 cout<<"NON_TERMINAL YYTEXT: "<<yytext<<endl;
-return RELOP;}
+return LESS_OR_EQUAL;}
+
+">" {
+cout<<endl<<endl<< "NON_TERMINAL YYLVAL (PREVIOUS TOKENINDEX): "<<yylval<<endl;
+cout<<"NON_TERMINAL YYTEXT: "<<yytext<<endl;
+return GREATER;}
+
+">=" {
+cout<<endl<<endl<< "NON_TERMINAL YYLVAL (PREVIOUS TOKENINDEX): "<<yylval<<endl;
+cout<<"NON_TERMINAL YYTEXT: "<<yytext<<endl;
+return GREATER_OR_EQUAL;}
 
 ":=" {
 cout<<endl<<endl<< "NON_TERMINAL YYLVAL (PREVIOUS TOKENINDEX): "<<yylval<<endl;

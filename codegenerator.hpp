@@ -23,8 +23,12 @@ public:
     CodeGenerator();
     ~CodeGenerator();
 	
+    int getNumberOfPushes() {return this->numberOfPushes;}
+    void createJumpLessStatement(Symbol left, Symbol right, Symbol label);
+    void createJumpEqualStatement(Symbol left, Symbol right, Symbol label);
+    void createAndStatement(Symbol left, Symbol right, Symbol to);
     void createPushStatement(Symbol symbol);
-    void createIncSPStatement();
+    void createIncreaseSPStatement();
 	void createExitStatement();
     void createJumpStatement(string labelName);
     void createLabelStatement(string labelName);
@@ -39,10 +43,7 @@ public:
     void createProcedureEnterStatement(string func, int numberOfArguments);
     void createEnterPlaceholder(string func);
     void createSubProgramReturnStatements();
-    int getNumberOfPushes()
-    {
-        return this->numberOfPushes;
-    }
+ 
 };
 
 #endif

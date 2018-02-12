@@ -6,7 +6,6 @@ extern SymbolTable *symbolTable;
 CodeGenerator::CodeGenerator()
 {
     this->outputFile.open("output.asm");
-    this->output.precision(2);
 }
 
 CodeGenerator::~CodeGenerator()
@@ -33,9 +32,9 @@ void CodeGenerator::createLabelStatement(string labelName)
 void CodeGenerator::createMovStatement(Symbol src, Symbol dst, VarType varType)
 {
     char opType = varType == INT_TYPE ? 'i' : 'r';
-	cout<<"----------DST.GETASMOPERAND "<<dst.getASMOperand()<<endl;
-    this->output << "\tmov." << opType << " " << dst.getASMOperand();
-    this->output << "," << src.getASMOperand();
+	cout<<"----------DST.getBPOperand "<<dst.getBPOperand()<<endl;
+    this->output << "\tmov." << opType << " " << dst.getBPOperand();
+    this->output << "," << src.getBPOperand();
     this->output << endl;
 }
 
@@ -48,7 +47,7 @@ void CodeGenerator::createWriteStatement(Symbol symbol)
 {
     char opType = symbol.getVarType() == INT_TYPE ? 'i' : 'r';
     this->output << "\twrite." << opType << " "
-                     << symbol.getASMOperand() << " " << endl;
+                     << symbol.getBPOperand() << " " << endl;
 }
 
 void CodeGenerator::createReadStatement()
@@ -62,8 +61,8 @@ void CodeGenerator::createArithmeticStatement(Symbol left, Symbol right, Symbol 
     switch (op)
     {
     case '+':
-        this->output << "\tadd." << operationType << " " << left.getASMOperand() << ","
-             << right.getASMOperand() << "," << dst.getASMOperand() << endl;
+        this->output << "\tadd." << operationType << " " << left.getBPOperand() << ","
+             << right.getBPOperand() << "," << dst.getBPOperand() << endl;
         break;
     case '*':
         this->output << "\tmul." << operationType << " " << left.getAddress() << ","
@@ -78,7 +77,7 @@ void CodeGenerator::createArithmeticStatement(Symbol left, Symbol right, Symbol 
 
 void CodeGenerator::createIntToRealStatement(Symbol src, Symbol dst)
 {
-    this->output << "\tinttoreal.i " << src.getASMOperand() << "," << dst.getASMOperand()
+    this->output << "\tinttoreal.i " << src.getBPOperand() << "," << dst.getBPOperand()
                  << endl;
 }
 
@@ -128,7 +127,7 @@ void CodeGenerator::createPushStatement(Symbol symbol)
     this->output << endl;
 }
 
-void CodeGenerator::createIncSPStatement()
+void CodeGenerator::createIncreaseSPStatement()
 {
     if (this->numberOfPushes != 0)
     {
@@ -137,5 +136,36 @@ void CodeGenerator::createIncSPStatement()
         this->numberOfPushes = 0;
     }
 }
+
+void CodeGenerator::createJumpLessStatement(Symbol left, Symbol right, Symbol label)
+{
+    if (left.getVarType() == right.getVarType())
+    {
+        if (left.getVarType() == INT_TYPE)
+        {
+            this->output << "\tjl.i " << left.getBPOperand() << ","
+                         << right.getBPOperand() << ",#" << label.getSymbolName()
+                         << endl;
+        }
+    }
+}
+
+void CodeGenerator::createJumpEqualStatement(Symbol left, Symbol right, Symbol label)
+{
+    this->output << "\tje.i " << left.getBPOperand() << ","
+                 << right.getBPOperand() << ",#" << label.getSymbolName()
+                 << endl;
+}
+
+
+void CodeGenerator::createAndStatement(Symbol left, Symbol right, Symbol to)
+{
+    this->output << "\tand.i " << left.getBPOperand() << ","
+                 << right.getBPOperand() << ","
+                 << to.getBPOperand()
+                 << endl;
+}
+
+
 
 CodeGenerator *codeGenerator = new CodeGenerator();
