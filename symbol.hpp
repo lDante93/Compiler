@@ -5,6 +5,8 @@
 #include <iostream>
 #include <vector>
 
+using namespace std;
+
 union SymbolValue
 {
     int intValue;
@@ -15,6 +17,8 @@ enum VarType
 {
     INT_TYPE,
     REAL_TYPE,
+    ARRAY_INT_TYPE,
+    ARRAY_REAL_TYPE,
     NONE_TYPE
 };
 
@@ -122,14 +126,46 @@ public:
         this->isLocal = isLocal;
     }
 
-    std::string getBPOperand()
+    std::string getBPOperand(bool isPush = false)
     {
         if (this->isReference)
         {
-			std::cout<<"REFERENCE "<<this->address<<std::endl;
-            return "*BP+" + std::to_string(this->address);
+            if (this->isLocalVar()) {
+                if (this->type != ARRAY_INT_TYPE && this->type != ARRAY_REAL_TYPE) {
+                    string ret = "*";
+                    if (isPush)
+                        ret = "";
+
+                    if (this->address < 0)
+                        return ret + "BP" + std::to_string(this->address);
+                    else
+                        return ret + "BP+" + std::to_string(this->address);
+                }
+                else
+                {
+                    if (this->address < 0)
+                        return "BP" + std::to_string(this->address);
+                    else
+                        return "BP+" + std::to_string(this->address);
+                }
+            }
+            else
+            {
+                return "*" + std::to_string(this->address);
+            }
         } else if (this->isLocalVar()) {
-			std::cout<<"LocalVar "<<this->address<<std::endl;
+            if (this->symbolType == CONSTANT_SYMBOL) {
+                if (this->type == INT_TYPE)
+                {
+                    return "#" + std::to_string(this->value.intValue);
+                }
+                else
+                {
+                    std::string doubleStr = std::to_string(this->value.doubleValue);
+                    return "#" + doubleStr.erase(doubleStr.find_last_not_of('0') + 2, std::string::npos);
+                }
+            }
+
             std::string ret = "BP";
             if (this->address > 0)
             {
@@ -137,24 +173,42 @@ public:
             }
             return ret + std::to_string(this->address);
         } else if (this->symbolType == CONSTANT_SYMBOL) {
-			std::cout<<"CONSTANT_SYMBOL "<<this->address<<std::endl;
             if (this->type == INT_TYPE)
             {
-				std::cout<<"INT TYPE CONSTANT SYMBOL"<<std::endl;
                 return "#" + std::to_string(this->value.intValue);
             }
             else
             {
-				std::cout<<"NONT INT TYPE CONSTANT SYMBOL"<<std::endl;
-                 std::string doubleStr = std::to_string(this->value.doubleValue);
-                 return "#" + doubleStr.erase(doubleStr.find_last_not_of('0') + 2, std::string::npos);
+                std::string doubleStr = std::to_string(this->value.doubleValue);
+                return "#" + doubleStr.erase(doubleStr.find_last_not_of('0') + 2, std::string::npos);
             }
         }
         else
         {
-			std::cout<<"getBPOperand ELSE "<<this->address<<std::endl;
-  		    return std::to_string(this->address);
+            if (this->type == ARRAY_INT_TYPE || this->type == ARRAY_REAL_TYPE)
+                return "#" + std::to_string(this->address);
+            return std::to_string(this->address);
         }
+    }
+
+    int getLowerIndex()
+    {
+        return this->lowerIndex;
+    }
+ 
+    void setLowerIndex(int lowerIndex)
+    {
+        this->lowerIndex = lowerIndex;
+    }
+
+    int getUpperIndex()
+    {
+        return this->upperIndex;
+    }
+ 
+    void setUpperIndex(int upperIndex)
+    {
+        this->upperIndex = upperIndex;
     }
 
 private:
@@ -167,6 +221,8 @@ private:
     bool isReference;
     int address;
     int references;
+    int lowerIndex;
+    int upperIndex;
 };
 
 #endif

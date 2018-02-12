@@ -7,7 +7,7 @@ CodeGenerator::CodeGenerator()
 {
     this->outputFile.open("output.asm");
 }
-
+ 
 CodeGenerator::~CodeGenerator()
 {
     this->outputFile << this->output.str();
@@ -32,9 +32,11 @@ void CodeGenerator::createLabelStatement(string labelName)
 void CodeGenerator::createMovStatement(Symbol src, Symbol dst, VarType varType)
 {
     char opType = varType == INT_TYPE ? 'i' : 'r';
-	cout<<"----------DST.getBPOperand "<<dst.getBPOperand()<<endl;
     this->output << "\tmov." << opType << " " << dst.getBPOperand();
-    this->output << "," << src.getBPOperand();
+    this->output << ",";
+    if (src.getVarType() == ARRAY_INT_TYPE || src.getVarType() == ARRAY_REAL_TYPE)
+        this->output << "*";
+    this->output << src.getBPOperand();
     this->output << endl;
 }
 
@@ -50,14 +52,14 @@ void CodeGenerator::createWriteStatement(Symbol symbol)
                      << symbol.getBPOperand() << " " << endl;
 }
 
-void CodeGenerator::createReadStatement()
+void CodeGenerator::createReadStatement(Symbol symbol)
 {
-    this->output << "\tread" << endl;
+    this->output << "\tread.i " << symbol.getBPOperand() << endl;
 }
 
 void CodeGenerator::createArithmeticStatement(Symbol left, Symbol right, Symbol dst, char op)
 {
-    char operationType = left.getVarType() == INT_TYPE ? 'i' : 'r';
+    char operationType = left.getVarType() == INT_TYPE || left.getVarType() == ARRAY_INT_TYPE ? 'i' : 'r';
     switch (op)
     {
     case '+':
@@ -65,14 +67,32 @@ void CodeGenerator::createArithmeticStatement(Symbol left, Symbol right, Symbol 
              << right.getBPOperand() << "," << dst.getBPOperand() << endl;
         break;
     case '*':
-        this->output << "\tmul." << operationType << " " << left.getAddress() << ","
-                         << right.getAddress() << "," << dst.getAddress() << endl;
+        this->output << "\tmul." << operationType << " " << left.getBPOperand() << ","
+                         << right.getBPOperand() << "," << dst.getBPOperand() << endl;
         break;
     case '-':
-        this->output << "\tsub." << operationType << " " << left.getAddress() << ","
-                         << right.getAddress() << "," << dst.getAddress() << endl;
+        this->output << "\tsub." << operationType << " " << left.getBPOperand() << ","
+                     << right.getBPOperand() << "," << dst.getBPOperand() << endl;
+        break;
+    case '/':
+        this->output << "\tdiv." << operationType << " " << left.getBPOperand() << ","
+                         << right.getBPOperand() << "," << dst.getBPOperand() << endl;
         break;
     }
+}
+
+void CodeGenerator::createDivStatement(Symbol left, Symbol right, Symbol dst)
+{
+    char operationType = left.getVarType() == INT_TYPE ? 'i' : 'r';
+    this->output << "\tdiv." << operationType << " " << left.getBPOperand() << ","
+                 << right.getBPOperand() << "," << dst.getBPOperand() << endl;
+}
+
+void CodeGenerator::createModStatement(Symbol left, Symbol right, Symbol dst)
+{
+    char operationType = left.getVarType() == INT_TYPE ? 'i' : 'r';
+    this->output << "\tmod." << operationType << " " << left.getBPOperand() << ","
+                 << right.getBPOperand() << "," << dst.getBPOperand() << endl;
 }
 
 void CodeGenerator::createIntToRealStatement(Symbol src, Symbol dst)
@@ -83,7 +103,7 @@ void CodeGenerator::createIntToRealStatement(Symbol src, Symbol dst)
 
 void CodeGenerator::createRealToIntStatement(Symbol src, Symbol dst)
 {
-    this->output << "\trealtoint.r " << src.getAddress() << "," << dst.getAddress()
+    this->output << "\trealtoint.r " << src.getBPOperand() << "," << dst.getBPOperand()
                  << endl;
 }
 
@@ -123,7 +143,10 @@ void CodeGenerator::createCallStatement(string procedureName)
 void CodeGenerator::createPushStatement(Symbol symbol)
 {
     this->numberOfPushes += 1;
-    this->output << "\tpush.i #" << symbol.getAddress();
+    this->output << "\tpush.i ";
+    if (symbol.getSymbolType() != ARGUMENT_SYMBOL && symbol.getVarType() != ARRAY_INT_TYPE && symbol.getVarType() != ARRAY_REAL_TYPE)
+        this->output << "#";
+    this->output << symbol.getBPOperand(true);
     this->output << endl;
 }
 
@@ -165,6 +188,7 @@ void CodeGenerator::createAndStatement(Symbol left, Symbol right, Symbol to)
                  << to.getBPOperand()
                  << endl;
 }
+
 void CodeGenerator::createOrStatement(Symbol left, Symbol right, Symbol to)
 {
     this->output << "\tor.i " << left.getBPOperand() << ","
@@ -172,13 +196,12 @@ void CodeGenerator::createOrStatement(Symbol left, Symbol right, Symbol to)
                  << to.getBPOperand()
                  << endl;
 }
+
 void CodeGenerator::createJumpGreaterStatement(Symbol left, Symbol right, Symbol label)
 {
     this->output << "\tjg.i " << left.getBPOperand() << ","
-                 << right.getBPOperand() << ",#" << label.getBPOperand()
+                 << right.getBPOperand() << ",#" << label.getSymbolName()
                  << endl;
 }
-
-
 
 CodeGenerator *codeGenerator = new CodeGenerator();

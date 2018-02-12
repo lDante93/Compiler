@@ -31,7 +31,7 @@ ID {LETTER}({LETTER}|{DIGIT})*
 {NEWLINE} |
 "{"[^{]*"}" /* ignore */;
 
-[\(\):;,\.\[\]] return yytext[0];
+[\(\):;,\[\]] return yytext[0];
 
 "program" {
 cout<<endl<<endl<< "NON_TERMINAL YYLVAL (PREVIOUS TOKENINDEX): "<<yylval<<endl;
@@ -133,6 +133,11 @@ cout<<endl<<endl<< "NON_TERMINAL YYLVAL (PREVIOUS TOKENINDEX): "<<yylval<<endl;
 cout<<"NON_TERMINAL YYTEXT: "<<yytext<<endl;
 return NOT;}
 
+"." {
+cout<<endl<<endl<< "NON_TERMINAL YYLVAL (PREVIOUS TOKENINDEX): "<<yylval<<endl;
+cout<<"NON_TERMINAL YYTEXT: "<<yytext<<endl;
+return DOT;}
+
 ".." {
 cout<<endl<<endl<< "NON_TERMINAL YYLVAL (PREVIOUS TOKENINDEX): "<<yylval<<endl;
 cout<<"NON_TERMINAL YYTEXT: "<<yytext<<endl;
@@ -194,6 +199,13 @@ cout<<"NON_TERMINAL YYTEXT: "<<yytext<<endl;
 return ASSIGN;}
 
 {INTEGER} {
+    int symbolIndex = symbolTable->lookupSymbol(atoi(yytext));
+    if (symbolIndex == -1)
+    {
+        yylval = symbolTable->insertConstant(atoi(yytext));
+    } else {
+        yylval = symbolIndex;
+    }
 cout<<endl<<endl<< "NON_TERMINAL YYLVAL (PREVIOUS TOKENINDEX): "<<yylval<<endl;
 cout<<"NON_TERMINAL YYTEXT: "<<yytext<<endl;
 
@@ -201,6 +213,13 @@ cout<<"NON_TERMINAL YYTEXT: "<<yytext<<endl;
 }
 
 {REAL} {
+    int symbolIndex = symbolTable->lookupSymbol((double) atof(yytext));
+    if (symbolIndex == -1)
+    {
+        yylval = symbolTable->insertDoubleConstant((double) atof(yytext));
+    } else {
+        yylval = symbolIndex;
+    }
 cout<<endl<<endl<< "NON_TERMINAL YYLVAL (PREVIOUS TOKENINDEX): "<<yylval<<endl;
 cout<<"NON_TERMINAL YYTEXT: "<<yytext<<endl;
 
@@ -225,8 +244,6 @@ cout<<"NON_TERMINAL YYTEXT: "<<yytext<<endl;
 				cout<<"YYLVAL BEZ INSERT: "<<yylval<<endl;
 				cout<<"YYTEXT BEZ INSERT: "<<yytext<<endl;
     }
-
-    return ID;
 
     return ID;
 }

@@ -11,8 +11,11 @@ extern SymbolTable *symbolTable;
 int main()
 {
     int parseResult = yyparse();
-    cout << symbolTable->commandLineTablePrint() << endl;
+ 
+    cout << symbolTable->printTableToCommandLine() << endl;
+
     delete codeGenerator;
     delete symbolTable;
+
     return parseResult;
 }

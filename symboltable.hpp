@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include <iomanip>
 #include "symbol.hpp"
 
 using namespace std;
@@ -12,16 +13,16 @@ class SymbolTable
 private:
     string name;
     int address;
-	int nextLabelId;
-    SymbolTable *parent;
     string printTable(SymbolTable *table);
-
+    int nextLabelId;
+ 
 public:
+    SymbolTable *parent;
     int enterArg;
     int temporaryVariableCount;
     vector<Symbol *> *symbols;
     vector<SymbolTable *> *children;
-	vector<string> pendingLabels;
+    vector<string> pendingLabels;
     int localSpaceAddress;
     int lastLocalSpaceAddress;
     SymbolTable();
@@ -33,14 +34,15 @@ public:
     Symbol &getSymbolByIndex(int tokenIndex);
     int insertSymbol(const char *symbol);
     int insertSymbol(const char *symbol, VarType varType);
+    int insertArray(VarType arrayType);
     int insertConstant(int intValue);
     int insertDoubleConstant(double doubleValue);
-    string commandLineTablePrint();
+    string printTableToCommandLine();
     void increaseAddress(int increaseBy);
     int getAddress();
     SymbolTable *addNewSymbolTable(string name);
     string getName()
-    {cout<<"@@@@SYMBOLTABLE@@@@ NAME: "<<this->name<<endl<<endl;
+    {
       return this->name;
     }
     Symbol* lookupFuncReturnReference(string funcName);

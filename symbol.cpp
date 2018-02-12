@@ -28,7 +28,7 @@ Symbol::Symbol(double value)
     this->type = REAL_TYPE;
     this->symbolType = CONSTANT_SYMBOL;
 }
-
+ 
 std::string Symbol::getSymbolName()
 {
     if (this->symbolType == CONSTANT_SYMBOL)
