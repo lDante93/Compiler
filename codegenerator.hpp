@@ -27,6 +27,7 @@ public:
     void createJumpLessStatement(Symbol left, Symbol right, Symbol label);
     void createJumpEqualStatement(Symbol left, Symbol right, Symbol label);
     void createAndStatement(Symbol left, Symbol right, Symbol to);
+	void createOrStatement(Symbol left, Symbol right, Symbol to);
     void createPushStatement(Symbol symbol);
     void createIncreaseSPStatement();
 	void createExitStatement();

@@ -165,6 +165,13 @@ void CodeGenerator::createAndStatement(Symbol left, Symbol right, Symbol to)
                  << to.getBPOperand()
                  << endl;
 }
+void CodeGenerator::createOrStatement(Symbol left, Symbol right, Symbol to)
+{
+    this->output << "\tor.i " << left.getBPOperand() << ","
+                 << right.getBPOperand() << ","
+                 << to.getBPOperand()
+                 << endl;
+}
 
 
 
