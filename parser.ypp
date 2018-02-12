@@ -359,7 +359,20 @@ statement:
         codeGenerator->createLabelStatement(symbolTable->getNextLabel());
         }
 	
-    | WHILE expression DO statement
+    | WHILE {
+        int labelId = symbolTable->createLabel(false);
+        codeGenerator->createLabelStatement(symbolTable->getSymbolByIndex(labelId).getSymbolName());
+        symbolTable->createLabel(true);
+        $$ = labelId;
+    } expression {
+        Symbol trueConstant = symbolTable->getSymbolByIndex(symbolTable->insertConstant(0));
+        Symbol expression = symbolTable->getSymbolByIndex($3);
+        codeGenerator->createJumpEqualStatement(expression, trueConstant, symbolTable->getNextLabel(false));
+    } DO statement {
+        Symbol beginLabel = symbolTable->getSymbolByIndex($2);
+        codeGenerator->createJumpStatement(beginLabel.getSymbolName());
+        codeGenerator->createLabelStatement(symbolTable->getNextLabel());
+    }
     | /* ignore */
     ;
 
@@ -411,12 +424,20 @@ expression:
         Symbol falseConstant = symbolTable->getSymbolByIndex(symbolTable->insertConstant(0));
         Symbol trueConstant = symbolTable->getSymbolByIndex(symbolTable->insertConstant(1));
         
+		cout<<"IS FALSECONSTANT LOCALVAR"<<falseConstant.isLocalVar()<<endl;
+		cout<<" FALSECONSTANT symbolType"<<falseConstant.getSymbolType()<<endl;
+		cout<<"IS TRUECONSTANT LOCALVAR"<<trueConstant.isLocalVar()<<endl;
+		cout<<" TRUECONSTANT symbolType"<<trueConstant.getSymbolType()<<endl;
+		
+		
         codeGenerator->createJumpLessStatement(left, right, trueLabel);
         codeGenerator->createMovStatement(tmpSymbol, falseConstant, INT_TYPE);
+		cout<<"FALSE CONSTANT "<<falseConstant.getAddress()<<endl<<endl<<endl<<endl<<endl<<endl<<endl<<endl<<endl<<endl<<endl<<endl<<endl<<endl<<endl<<endl<<endl<<endl;
         codeGenerator->createJumpStatement(falseLabel.getSymbolName());
 
         codeGenerator->createLabelStatement(trueLabel.getSymbolName());
         codeGenerator->createMovStatement(tmpSymbol, trueConstant, INT_TYPE);
+				cout<<"TRUE CONSTANT "<<trueConstant.getAddress()<<endl<<endl<<endl<<endl<<endl<<endl<<endl<<endl<<endl<<endl<<endl<<endl<<endl<<endl<<endl<<endl<<endl<<endl;
         codeGenerator->createLabelStatement(falseLabel.getSymbolName());
 
         $$ = resultId;

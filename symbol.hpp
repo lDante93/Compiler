@@ -140,12 +140,14 @@ public:
 			std::cout<<"CONSTANT_SYMBOL "<<this->address<<std::endl;
             if (this->type == INT_TYPE)
             {
+				std::cout<<"INT TYPE CONSTANT SYMBOL"<<std::endl;
                 return "#" + std::to_string(this->value.intValue);
             }
             else
             {
+				std::cout<<"NONT INT TYPE CONSTANT SYMBOL"<<std::endl;
                  std::string doubleStr = std::to_string(this->value.doubleValue);
-                 return "#" + doubleStr.erase(doubleStr.find_last_not_of('0') + 3, std::string::npos);
+                 return "#" + doubleStr.erase(doubleStr.find_last_not_of('0') + 2, std::string::npos);
             }
         }
         else

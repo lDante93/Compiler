@@ -184,11 +184,13 @@ int SymbolTable::insertConstant(int intValue)
         Symbol symbol = *this->symbols->at(i);
         if (symbol.getVarType() == INT_TYPE && symbol.getSymbolType() == CONSTANT_SYMBOL && symbol.getSymbolValue().intValue == intValue)
         {
+			cout<<"insertConstant  CONSTANT: "<<i<<endl;
             return i;
         }
     }
 
     Symbol *s = new Symbol(intValue);
+	cout<<"*S "<<s->isLocalVar()<<endl;
 		cout<<"INSERT CONSTANT ADDRESS INTEGER"<<this->address<<endl;
     s->setAddress(this->address);
     // if (this->name.compare("global") != 0)
@@ -197,6 +199,7 @@ int SymbolTable::insertConstant(int intValue)
     //     this->localSpaceAddress -= 4;
     // }
     this->symbols->push_back(s);
+				cout<<"insertConstant  NONCONSTANT: "<<this->symbols->size() - 1<<endl;
     return this->symbols->size() - 1;
 }
 
